@@ -88,7 +88,12 @@ def main (args : List String) : IO UInt32 := do
   let toks := tokenize content
   match toks with
   | [] => IO.println "empty input"; return 1
-  | mode :: rest =>
+  | mode :: rest₀ =>
+    -- Optional tolerance: `tol <rat>` immediately after the mode token.
+    let (tol?, rest) : Option Rat × List String :=
+      match rest₀ with
+      | "tol" :: d :: tl => (parseRat? d, tl)
+      | _ => (none, rest₀)
     let nums := rest.filterMap parseRat?
     let nNums := nums.length
     let (F?, pts) ←
@@ -122,21 +127,36 @@ def main (args : List String) : IO UInt32 := do
     IO.println (showMat F)
     IO.println ""
     IO.println s!"points: {pts.length}"
-    let ok := checkEpipolar F pts
-    let bad := pts.filter (fun p => epipolarResidual F p.1 p.2 ≠ 0)
-    IO.println s!"epipolar residuals: {pts.length - bad.length}/{pts.length} exactly zero"
+    let maxRes := (pts.map fun p => epipolarResidual F p.1 p.2).foldl max 0
+    let ok := match tol? with
+      | some δ => checkEpipolarTol δ pts F
+      | none => checkEpipolar F pts
+    match tol? with
+    | some δ =>
+      IO.println s!"tolerance: δ = {δ}"
+      IO.println s!"max |residual| = {maxRes}"
+      IO.println s!"exact check (δ = 0) accepts: {checkEpipolar F pts}"
+    | none =>
+      let bad := pts.filter (fun p => epipolarResidual F p.1 p.2 ≠ 0)
+      IO.println s!"epipolar residuals: {pts.length - bad.length}/{pts.length} exactly zero"
     match rankWitness F with
     | some (m, i, j, k, l) =>
       IO.println s!"rank two: det F = 0, minor rows ({i.val},{j.val}) cols ({k.val},{l.val}) = {m} ≠ 0"
     | none => IO.println "rank two: FAILED (all 2×2 minors vanish)"
     if ok then
-      IO.println "\nCERTIFIED — every check passed exactly"
-      match pts with
-      | (x, _) :: _ =>
-        let x' : Point := fun i => if i = 0 then x 0 + (1 : Rat) / 1000 else x i
-        let pts' := (x, x') :: pts.tail
-        IO.println s!"negative control: perturbing u by 1/1000 is rejected: {!checkEpipolar F pts'}"
-      | [] => pure ()
+      match tol? with
+      | some δ =>
+        IO.println "\nCERTIFIED within tolerance — rank and residuals verified"
+        IO.println s!"tightening δ to {maxRes / 2} is rejected: {!(checkEpipolarTol (maxRes / 2) pts F)}"
+        IO.println s!"max residual {maxRes} ≤ δ: {decide (maxRes ≤ δ)}"
+      | none =>
+        IO.println "\nCERTIFIED — every check passed exactly"
+        match pts with
+        | (x, _) :: _ =>
+          let x' : Point := fun i => if i = 0 then x 0 + (1 : Rat) / 1000 else x i
+          let pts' := (x, x') :: pts.tail
+          IO.println s!"negative control: perturbing u by 1/1000 is rejected: {!checkEpipolar F pts'}"
+        | [] => pure ()
       return 0
     else
       IO.println "\nREJECTED — at least one check failed"

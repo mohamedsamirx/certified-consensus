@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        uses: leanprover/lean-action@v1
+        with:
+          build: true
+          test: false
+          lint: false
+
+      - name: Axiom audit
+        run: lake env lean scripts/check_axioms.lean | tee axioms.txt
+
+      - name: Reject non-standard axioms
+        run: |
+          if grep "depends on axioms" axioms.txt \
+             | grep -v "\[propext, Classical.choice, Quot.sound\]"; then
+            echo "::error::unexpected axioms"
+            exit 1
+          fi
+          ! grep -q "sorryAx" axioms.txt
+
+      - name: Certificate demo
+        run: lake exe certify data/stereo_certificate.txt

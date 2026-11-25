@@ -214,6 +214,14 @@ theorem choose_ratio_lt_pow (m n k : ℕ) (hmn : m < n) (hk : 2 ≤ k) (hkm : k 
   rw [choose_ratio_eq_descFactorial_ratio]
   exact descFactorial_ratio_lt_pow m n k hmn hk hkm
 
+/-- The same bound, transported to `ℝ` for use in the stopping rule. -/
+theorem choose_ratio_le_pow_real (m n k : ℕ) (hmn : m ≤ n) (hkm : k ≤ m) :
+    (m.choose k : ℝ) / (n.choose k : ℝ) ≤ ((m : ℝ) / n) ^ k := by
+  have h := choose_ratio_le_pow m n k hmn hkm
+  have h' : ((m.choose k : ℚ) / (n.choose k : ℚ) : ℝ) ≤ (((m : ℚ) / n) ^ k : ℝ) := by
+    exact_mod_cast h
+  simpa using h'
+
 end Bound
 
 end CertifiedConsensus

@@ -98,4 +98,35 @@ theorem checkEpipolar_sound_real {F : Matrix (Fin 3) (Fin 3) ℚ} {pts : List (P
   rw [← residual_cast, hres]
   simp
 
+/-! ## Certified tolerance
+
+Real correspondences never satisfy the epipolar constraint exactly. The tolerance
+checker replaces `residual = 0` by `|residual| ≤ δ`, where `δ` is an explicit rational
+supplied by the caller. The result is still a machine-checked statement: not "the
+residual is small", but "the residual is at most this number". -/
+
+/-- The residual lies in `[-δ, δ]`. -/
+def residualWithin (F : Matrix (Fin 3) (Fin 3) ℚ) (p : Point × Point) (δ : ℚ) : Bool :=
+  let r := epipolarResidual F p.1 p.2
+  (r ≤ δ) && (-δ ≤ r)
+
+/-- Tolerance certificate: rank two, and every residual bounded by `δ`. -/
+def checkEpipolarTol (δ : ℚ) (pts : List (Point × Point))
+    (F : Matrix (Fin 3) (Fin 3) ℚ) : Bool :=
+  IsRankTwo F && pts.all (fun p => residualWithin F p δ)
+
+/-- **Soundness of the tolerance checker.** A passing certificate establishes rank two
+and the explicit bound `|x'ᵀ F x| ≤ δ` on every correspondence. -/
+theorem checkEpipolarTol_sound {δ : ℚ} {pts : List (Point × Point)}
+    {F : Matrix (Fin 3) (Fin 3) ℚ} (h : checkEpipolarTol δ pts F = true) :
+    F.det = 0 ∧ (∃ m ∈ minors2 F, m ≠ 0) ∧
+      ∀ p ∈ pts, |epipolarResidual F p.1 p.2| ≤ δ := by
+  simp only [checkEpipolarTol, Bool.and_eq_true] at h
+  obtain ⟨hrank, hall⟩ := h
+  refine ⟨(isRankTwo_sound hrank).1, (isRankTwo_sound hrank).2, ?_⟩
+  intro p hp
+  have hp' := List.all_eq_true.mp hall p hp
+  simp only [residualWithin, Bool.and_eq_true, decide_eq_true_eq] at hp'
+  exact abs_le.mpr ⟨hp'.2, hp'.1⟩
+
 end CertifiedConsensus

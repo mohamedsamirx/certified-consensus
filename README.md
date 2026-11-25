@@ -6,7 +6,7 @@ A Lean 4 library that machine-checks the exact probabilistic guarantee behind ro
 estimation, and validates a fundamental matrix on real correspondences by exact rational
 arithmetic.
 
-Everything here is proved; nothing is `sorry`. The five headline theorems depend only on
+Everything here is proved; nothing is `sorry`. Every headline theorem depends only on
 `propext`, `Classical.choice`, and `Quot.sound`.
 
 ---
@@ -52,12 +52,15 @@ grows, which is exactly the regime where RANSAC is used hardest.
 | `choose_ratio_le_pow` | `C(m,k)/C(n,k) ≤ (m/n)^k` for `m ≤ n` |
 | `choose_ratio_lt_pow` | strict, for `m < n` and `k ≥ 2` |
 | `pow_le_one_sub_of_ge_log_div_log` | the corrected iteration count reaches confidence `η` |
+| `folklore_iterations_le_exact` | given `P ≤ p^k`, the textbook count never exceeds the exact count |
+| `ransac_iterations_le_exact` | the same, instantiated with `P = C(m,k)/C(n,k)` and `p = m/n` |
 | `expected_false_alarms_le` | a contrario: `m` tests calibrated at `ε/m` give expected false alarms `≤ ε` |
 | `epipolar_constraint` | `x'ᵀ F x = 0` for `F = [b]ₓ A` and every world point |
 | `transpose_mulVec_epipolar` | `Fᵀ b = 0` — the baseline is the second epipole |
 | `mulVec_epipolar_of_eq` | `A e = b → F e = 0` — the first epipole is `A⁻¹ b` |
 | `det_epipolar` | `det F = 0` |
 | `checkEpipolar_sound` | a passing certificate implies singularity, a nonzero minor, and exact residuals |
+| `checkEpipolarTol_sound` | a passing tolerant certificate implies every residual is `≤ δ` |
 
 `#print axioms checkEpipolar_sound` → `[propext, Classical.choice, Quot.sound]`.
 
@@ -85,6 +88,24 @@ negative control: perturbing u by 1/1000 is rejected: true
 
 The input file is a camera pair `(A, b)` or a matrix `F`, plus correspondences; see
 `data/stereo_certificate.txt` and the header of `Main.lean` for the format.
+
+Real correspondences are never exact, so the checker has a certified tolerance mode:
+fix a rational `δ` and certify `|x'ᵀFx| ≤ δ` for every correspondence.
+
+```
+$ lake exe certify data/noisy_certificate.txt
+...
+tolerance: δ = 3/500
+max |residual| = 29/5000
+exact check (δ = 0) accepts: false
+rank two: det F = 0, minor rows (0,2) cols (0,2) = -1/20 ≠ 0
+
+CERTIFIED within tolerance — rank and residuals verified
+tightening δ to 29/10000 is rejected: true
+```
+
+The threshold in `data/noisy_certificate.txt` is the smallest multiple of `1/1000` above
+the observed maximum residual, so it is tight by construction rather than generous.
 
 ## What is checked, and what is assumed
 
@@ -114,7 +135,9 @@ CertifiedConsensus/
   AContrario.lean  finite NFA bound
 Main.lean          `certify` executable
 Demo.lean          symbolic worked example
-data/              a camera pair and 24 exact correspondences
+data/              camera pair + 24 exact correspondences, and a noisy variant
+scripts/           axiom audit, end-to-end verification, noisy-data generator
+DESIGN.md          decision log: what was chosen, rejected, and why
 ```
 
 ## Build
@@ -126,12 +149,14 @@ lake build
 lake exe certify data/stereo_certificate.txt
 ```
 
+`scripts/verify.sh` runs the build, audits axioms, and executes the demo in one step.
+
 ## Status
 
 - Mathlib candidates: `choose_ratio_lt_pow` (a `Nat.choose` product bound) and
   `expected_false_alarms_le` (a finite union-bound principle).
-- Next: the `#certify_epipolar` command, which runs the checker at elaboration time;
-  homography instances; a PnP instance.
+- Next: the `#certify_epipolar` elaborator command; homography and PnP instances. See
+  `DESIGN.md` for why each of these was deferred.
 
 ## References
 
