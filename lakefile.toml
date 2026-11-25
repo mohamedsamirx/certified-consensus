@@ -1,0 +1,15 @@
+name = "certified_consensus"
+version = "0.1.0"
+defaultTargets = ["CertifiedConsensus"]
+
+[[lean_lib]]
+name = "CertifiedConsensus"
+
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"
+rev = "348837d3aa976624060d7c35c183fff587c5a24a"
+
+[[lean_exe]]
+name = "certify"
+root = "Main"
