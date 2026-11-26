@@ -1,46 +1,58 @@
-variable {m n k : ℕ}
-
-/-- The descending-factorial inequality underlying
-`Nat.choose_div_choose_le_pow_div_pow`. -/
-theorem descFactorial_mul_pow_le (hmn : m ≤ n) (hkm : k ≤ m) :
+/-- For `m ≤ n`, `m.descFactorial k * n ^ k ≤ n.descFactorial k * m ^ k`. This is the
+descending-factorial form of the ratio bound. -/
+private lemma descFactorial_mul_pow_le {m : ℕ} (hmn : m ≤ n) :
     m.descFactorial k * n ^ k ≤ n.descFactorial k * m ^ k := by
-  rw [Nat.descFactorial_eq_prod_range, Nat.descFactorial_eq_prod_range]
-  rw [show n ^ k = ∏ _ ∈ Finset.range k, n by simp]
-  rw [show m ^ k = ∏ _ ∈ Finset.range k, m by simp]
-  rw [← Finset.prod_mul_distrib, ← Finset.prod_mul_distrib]
-  refine Finset.prod_le_prod (fun i hi => ?_)
-  have hik : i < k := Finset.mem_range.mp hi
-  have him : i ≤ m := le_trans (Nat.le_of_lt hik) hkm
-  rw [Nat.sub_mul, Nat.sub_mul, Nat.mul_comm n m]
-  exact Nat.sub_le_sub_left (Nat.mul_le_mul_left i hmn) (m * n)
+  induction k with
+  | zero => simp
+  | succ k ih =>
+    rw [Nat.descFactorial_succ, Nat.descFactorial_succ, pow_succ, pow_succ]
+    have h1 : (m - k) * n ≤ (n - k) * m := by
+      rcases le_or_gt k m with hk | hk
+      · rw [Nat.sub_mul, Nat.sub_mul, Nat.mul_comm n m]
+        exact Nat.sub_le_sub_left (Nat.mul_le_mul_left k hmn) (m * n)
+      · rw [Nat.sub_eq_zero_of_le hk.le, Nat.zero_mul]
+        exact Nat.zero_le _
+    calc (m - k) * m.descFactorial k * (n ^ k * n)
+        = ((m - k) * n) * (m.descFactorial k * n ^ k) := by ac_rfl
+      _ ≤ ((n - k) * m) * (n.descFactorial k * m ^ k) := Nat.mul_le_mul h1 ih
+      _ = (n - k) * n.descFactorial k * (m ^ k * m) := by ac_rfl
 
-/-- **Ratio bound for binomial coefficients.** If `m ≤ n` and `k ≤ m`, then
-`C(m,k) / C(n,k) ≤ (m/n)^k`.
+/-- For `m ≤ n`, `m.choose k * n ^ k ≤ n.choose k * m ^ k`. -/
+private lemma choose_mul_pow_le {m : ℕ} (hmn : m ≤ n) :
+    m.choose k * n ^ k ≤ n.choose k * m ^ k := by
+  have h' : k.factorial * (m.choose k * n ^ k) ≤ k.factorial * (n.choose k * m ^ k) := by
+    calc k.factorial * (m.choose k * n ^ k)
+        = (k.factorial * m.choose k) * n ^ k := by ac_rfl
+      _ = m.descFactorial k * n ^ k := by rw [Nat.descFactorial_eq_factorial_mul_choose]
+      _ ≤ n.descFactorial k * m ^ k := descFactorial_mul_pow_le hmn
+      _ = (k.factorial * n.choose k) * m ^ k := by rw [Nat.descFactorial_eq_factorial_mul_choose]
+      _ = k.factorial * (n.choose k * m ^ k) := by ac_rfl
+  exact Nat.le_of_mul_le_mul_left h' k.factorial_pos
 
-The left-hand side is the probability that a uniformly random `k`-element subset of an
-`n`-element set is contained in a fixed `m`-element subset; the right-hand side is the
-corresponding probability for `k` independent draws with replacement. -/
-theorem choose_div_choose_le_pow_div_pow (hmn : m ≤ n) (hkm : k ≤ m) :
+/-- **Ratio bound for binomial coefficients.** For `m ≤ n`, the ratio of binomial
+coefficients `m.choose k / n.choose k` is at most `(m / n) ^ k`.
+
+This is the probability that `k` items drawn without replacement from `n` items, of which
+`m` are marked, are all marked: it is at most the corresponding probability `(m / n) ^ k`
+for drawing with replacement. The bound is an equality when `m = n` and when `k ≤ 1`, and
+is sharper than the estimate obtained from `Nat.choose_le_pow_div` and `Nat.pow_le_choose`
+for `2 ≤ k`. -/
+theorem choose_div_choose_le_pow_div_pow {m : ℕ} (hmn : m ≤ n) :
     (m.choose k : α) / (n.choose k : α) ≤ ((m : α) / n) ^ k := by
-  rcases Nat.eq_zero_or_pos n with hn0 | hn
-  · have hm0 : m = 0 := by omega
-    have hk0 : k = 0 := by omega
-    simp [hn0, hm0, hk0]
-  have hnα : (0 : α) < n := by exact_mod_cast hn
-  have hkn : k ≤ n := le_trans hkm hmn
-  have hCn : (0 : α) < (n.choose k : α) := by exact_mod_cast Nat.choose_pos hkn
-  have hpow : (0 : α) < (n : α) ^ k := pow_pos hnα k
-  rw [div_pow, div_le_div_iff₀ hCn hpow]
-  have hmain : (m.descFactorial k : α) * (n : α) ^ k ≤
-      (n.descFactorial k : α) * (m : α) ^ k := by
-    exact_mod_cast descFactorial_mul_pow_le hmn hkm
-  have hfac : (0 : α) < (k.factorial : α) := by exact_mod_cast k.factorial_pos
-  have hmul : ((m.choose k : α) * (n : α) ^ k) * (k.factorial : α) ≤
-      ((m : α) ^ k * (n.choose k : α)) * (k.factorial : α) := by
-    calc ((m.choose k : α) * (n : α) ^ k) * (k.factorial : α)
-        = (m.descFactorial k : α) * (n : α) ^ k := by
-          rw [Nat.descFactorial_eq_factorial_mul_choose]; norm_cast; ac_rfl
-      _ ≤ (n.descFactorial k : α) * (m : α) ^ k := hmain
-      _ = ((m : α) ^ k * (n.choose k : α)) * (k.factorial : α) := by
-          rw [Nat.descFactorial_eq_factorial_mul_choose]; norm_cast; ac_rfl
-  exact le_of_mul_le_mul_right hmul hfac
+  rcases le_or_gt k m with hkm | hkm
+  · obtain rfl | hn := eq_zero_or_pos n
+    · have hm0 : m = 0 := Nat.le_zero.mp hmn
+      have hk0 : k = 0 := Nat.le_zero.mp (hm0 ▸ hkm)
+      simp [hm0, hk0]
+    have hnα : (0 : α) < n := by exact_mod_cast hn
+    have hkn : k ≤ n := le_trans hkm hmn
+    have hCn : (0 : α) < (n.choose k : α) := by exact_mod_cast Nat.choose_pos hkn
+    have hpow : (0 : α) < (n : α) ^ k := pow_pos hnα k
+    rw [div_pow, div_le_div_iff₀ hCn hpow]
+    have hnat : m.choose k * n ^ k ≤ n.choose k * m ^ k := choose_mul_pow_le hmn
+    have hcast : (m.choose k : α) * (n : α) ^ k ≤ (n.choose k : α) * (m : α) ^ k := by
+      exact_mod_cast hnat
+    simpa only [mul_comm, mul_left_comm, mul_assoc] using hcast
+  · rw [Nat.choose_eq_zero_of_lt hkm, Nat.cast_zero, zero_div]
+    exact pow_nonneg (div_nonneg (by exact_mod_cast Nat.zero_le m)
+      (by exact_mod_cast Nat.zero_le n)) k
