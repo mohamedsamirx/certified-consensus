@@ -111,14 +111,14 @@ private lemma choose_mul_pow_le {m : ℕ} (hmn : m ≤ n) :
       _ = k.factorial * (n.choose k * m ^ k) := by ac_rfl
   exact Nat.le_of_mul_le_mul_left h' k.factorial_pos
 
-/-- **Ratio bound for binomial coefficients.** For `m ≤ n`, the ratio of binomial
-coefficients `m.choose k / n.choose k` is at most `(m / n) ^ k`.
+/-- Ratio bound for binomial coefficients: for `m ≤ n`, the ratio
+`m.choose k / n.choose k` is at most `(m / n) ^ k`.
 
 This is the probability that `k` items drawn without replacement from `n` items, of which
-`m` are marked, are all marked: it is at most the corresponding probability `(m / n) ^ k`
-for drawing with replacement. The bound is an equality when `m = n` and when `k ≤ 1`, and
-is sharper than the estimate obtained from `Nat.choose_le_pow_div` and `Nat.pow_le_choose`
-for `2 ≤ k`. -/
+`m` are marked, are all marked; it is at most the corresponding with-replacement probability
+`(m / n) ^ k`. Equality holds when `k ≤ 1`, when `m = 0`, and when `m = n` with `k ≤ n`.
+For `2 ≤ k ≤ n` the bound is at most the estimate obtained from `Nat.choose_le_pow_div` and
+`Nat.pow_le_choose`, and strictly smaller when `0 < m < n`. -/
 theorem choose_div_choose_le_pow_div_pow {m : ℕ} (hmn : m ≤ n) :
     (m.choose k : α) / (n.choose k : α) ≤ ((m : α) / n) ^ k := by
   rcases le_or_gt k m with hkm | hkm
