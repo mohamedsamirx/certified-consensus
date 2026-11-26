@@ -169,6 +169,22 @@ scripts/           axiom audit, end-to-end verification, noisy-data generator
 DESIGN.md          decision log: what was chosen, rejected, and why
 ```
 
+## Verification
+
+Raw output of `scripts/check_axioms.lean`:
+
+```
+'CertifiedConsensus.ransac_iterations_le_exact' depends on axioms: [propext, Classical.choice, Quot.sound]
+'CertifiedConsensus.choose_ratio_lt_pow' depends on axioms: [propext, Classical.choice, Quot.sound]
+'CertifiedConsensus.pow_le_one_sub_of_ge_log_div_log' depends on axioms: [propext, Classical.choice, Quot.sound]
+'CertifiedConsensus.epipolar_constraint' depends on axioms: [propext, Classical.choice, Quot.sound]
+'CertifiedConsensus.checkEpipolar_sound_real' depends on axioms: [propext, Classical.choice, Quot.sound]
+'CertifiedConsensus.expected_false_alarms_le' depends on axioms: [propext, Classical.choice, Quot.sound]
+```
+
+There is no `sorry` or `admit` in the library. `scripts/verify.sh` fails the build if one
+appears, or if any audited theorem depends on an axiom outside that list.
+
 ## Build
 
 ```bash
