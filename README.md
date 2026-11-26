@@ -172,13 +172,17 @@ DESIGN.md          decision log: what was chosen, rejected, and why
 ## Build
 
 ```bash
+git clone https://github.com/mohamedsamirx/certified-consensus
+cd certified-consensus
 elan toolchain install leanprover/lean4:v4.37.0-rc1
-lake exe cache get
+lake exe cache get        # prebuilt Mathlib, roughly 7 GB
 lake build
 lake exe certify data/stereo_certificate.txt
 ```
 
-`scripts/verify.sh` runs the build, audits axioms, and executes the demo in one step.
+With the cache the first build takes minutes; without it, Mathlib compiles for hours.
+`scripts/verify.sh` runs the build, the axiom audit, both certificates, the elaborator
+command, and the rejection test in one step.
 
 ## Status
 
