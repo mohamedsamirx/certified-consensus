@@ -169,9 +169,17 @@ connects a `true` answer to the mathematical statement. Elaboration-time evaluat
 makes a bad certificate a compile error.
 
 **Implementation constraint.** `Meta.evalExpr` is `unsafe`, so the command is an `unsafe`
-core with a safe `opaque` wrapper via `@[implemented_by]`. The matrix type is read off
-`checkEpipolar`'s signature rather than constructed by hand, because universe metavariables
-in a hand-built `Matrix` expression are not instantiated.
+core with a safe `opaque` wrapper via `@[implemented_by]`. This is not a workaround: Lean's
+own `#eval` has the same shape (`@[implemented_by elabEvalCoreUnsafe] opaque elabEvalCore`),
+because a `CommandElab` cannot call an unsafe definition directly. The matrix type is
+elaborated with `Term.elabTermAndSynthesize`, which instantiates the universe metavariables
+that a hand-built `mkConst` expression leaves dangling.
+
+**Trust, precisely.** `implemented_by` is not checked for equivalence, so the wrapper is an
+assumption about the compiled evaluator — the same assumption `native_decide` makes.
+Declaring the wrapper `opaque` rather than a `def` confines that assumption to one signpost:
+no proof can unfold it. The soundness theorem is what turns the boolean verdict into a
+mathematical statement; the evaluator only decides *which* boolean.
 
 **Cost.** The command trusts the compiler's evaluator, exactly as `native_decide` does; it
 does not claim to be a kernel reduction. This is stated in the README's "what is assumed"

@@ -122,9 +122,15 @@ reads the correspondences, and **fails the build** if the certificate is invalid
   from "data/noisy_points.txt" tol 3/500
 ```
 
-Replacing the matrix by the identity produces `rank two: false`,
-`residuals exactly zero: 0/24`, and `error: REJECTED — rank or residual check failed`.
-The same file cannot be compiled into a false claim.
+Replacing the matrix by the identity produces `rank two: false` and
+`error: REJECTED — F is not rank two (det = 1)`. A correspondence outside the tolerance
+produces `REJECTED — correspondence i has residual r, outside tolerance δ` instead, so the
+diagnostic names the check that failed and the point that caused it. The same file cannot be
+compiled into a false claim.
+
+Relative paths resolve against the directory of the source file, not the process working
+directory, so the command behaves identically under `lake build`, `lake env lean`, and an
+editor. `tests/PathResolve.lean` exercises exactly that case.
 
 ## What is checked, and what is assumed
 
@@ -157,6 +163,7 @@ CertifiedConsensus/
 Main.lean          `certify` executable
 Demo.lean          symbolic worked example
 Examples.lean      kernel-time certificate commands
+tests/             path-resolution and rejection tests
 data/              camera pair + 24 exact correspondences, and a noisy variant
 scripts/           axiom audit, end-to-end verification, noisy-data generator
 DESIGN.md          decision log: what was chosen, rejected, and why

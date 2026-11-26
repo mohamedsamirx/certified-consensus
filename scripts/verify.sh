@@ -37,4 +37,21 @@ echo "== elaborator command (kernel-time check) =="
 lake env lean Examples.lean
 
 echo
+echo "== elaborator command (source-relative paths) =="
+lake env lean tests/PathResolve.lean
+
+echo
+echo "== elaborator command rejects an invalid certificate =="
+if lake env lean tests/Reject.lean > /tmp/cc-reject.log 2>&1; then
+  echo "FAIL: tests/Reject.lean compiled but should have been rejected"
+  exit 1
+fi
+grep -q "REJECTED — F is not rank two" /tmp/cc-reject.log || {
+  echo "FAIL: rejection message missing"
+  cat /tmp/cc-reject.log
+  exit 1
+}
+echo "OK: invalid certificate rejected at elaboration time"
+
+echo
 echo "OK: build, axioms, both certificates, and the elaborator command verified"

@@ -20,6 +20,18 @@ With an explicit tolerance:
 ```
 #certify_epipolar F from "data/noisy_points.txt" tol 3/500
 ```
+
+Relative paths are resolved against the directory of the file containing the command,
+not against the process working directory.
+
+## Trust boundary
+
+`Meta.evalExpr` is `unsafe`: it evaluates the elaborated term with compiled code, the
+same mechanism `#eval` and `native_decide` use. The command is therefore an `unsafe`
+implementation behind an `@[implemented_by] opaque` wrapper, mirroring
+`Lean.Elab.Command.elabEvalCore` in the Lean sources. The *statement* being checked is
+still the kernel-checked `checkEpipolar_sound`; only the computation of the `Bool` is
+delegated to compiled evaluation.
 -/
 
 open Lean Elab Command Meta
@@ -34,19 +46,36 @@ def renderMat (M : Matrix (Fin 3) (Fin 3) Rat) : String :=
 /-- Evaluate a term of the given type at elaboration time. -/
 unsafe def evalTermUnsafe (stx : Syntax) (expected : Expr) (hostType : Type) : CommandElabM hostType :=
   liftTermElabM do
-    let e ← Term.elabTerm stx (some expected)
-    Term.synthesizeSyntheticMVarsNoPostponing
-    let e ← instantiateMVars e
+    let e ← Term.elabTermAndSynthesize stx (some expected)
     Meta.evalExpr hostType expected e
+
+/-- Resolve a path relative to the file currently being elaborated. -/
+def resolvePath (p : String) : CommandElabM System.FilePath := do
+  let raw := System.FilePath.mk p
+  if raw.isAbsolute then return raw
+  let here := System.FilePath.mk (← getFileName)
+  return (here.parent.map (·.join raw)).getD raw
+
+/-- The first correspondence violating the tolerance, with its index and residual. -/
+def firstViolation (F : Matrix (Fin 3) (Fin 3) Rat) (pts : List (Point × Point))
+    (δ : Rat) : Option (Nat × Rat) :=
+  let rec go (i : Nat) : List (Point × Point) → Option (Nat × Rat)
+    | [] => none
+    | p :: ps =>
+      if residualWithin F p δ then go (i + 1) ps
+      else some (i, epipolarResidual F p.1 p.2)
+  go 0 pts
 
 unsafe def certifyEpipolarCore (F : Syntax) (file : Syntax) (δ? : Option Syntax) :
     CommandElabM Unit := do
-  let path ← match file.isStrLit? with
+  let rawPath ← match file.isStrLit? with
     | some p => pure p
     | none => throwError "expected a string literal file name"
-  let matTy ← liftTermElabM do
-    let ty ← inferType (mkConst ``checkEpipolar)
-    pure ty.bindingDomain!
+  let path ← resolvePath rawPath
+  -- Read the matrix type off the quoted type rather than reconstructing it by hand:
+  -- `Matrix` carries a universe level, and hand-built `Expr`s are easy to get wrong.
+  let matTy ← liftTermElabM <| Term.elabTermAndSynthesize
+    (← `(Matrix (Fin 3) (Fin 3) Rat)) (some (.sort .zero))
   let Fv ← evalTermUnsafe F matTy (Matrix (Fin 3) (Fin 3) Rat)
   let δv? ← match δ? with
     | none => pure none
@@ -54,20 +83,23 @@ unsafe def certifyEpipolarCore (F : Syntax) (file : Syntax) (δ? : Option Syntax
   let content ← liftIO <| IO.FS.readFile path
   let pts ← match parsePoints (tokenize content) with
     | .ok pts => pure pts
-    | .error msg => throwError "certificate parse error: {msg}"
-  let ok := match δv? with
-    | some δ => checkEpipolarTol δ pts Fv
-    | none => checkEpipolar Fv pts
-  let maxRes := (pts.map fun p => epipolarResidual Fv p.1 p.2).foldl max 0
+    | .error msg => throwError "certificate parse error in {path}: {msg}"
+  let δ := δv?.getD 0
+  let bad := firstViolation Fv pts δ
   let zeroRes := (pts.filter fun p => epipolarResidual Fv p.1 p.2 == 0).length
-  let body := match δv? with
+  let maxRes := (pts.map fun p => epipolarResidual Fv p.1 p.2).foldl max 0
+  let report := match δv? with
     | some δ => s!"tolerance δ = {δ}\nmax |residual| = {maxRes}"
     | none => s!"residuals exactly zero: {zeroRes}/{pts.length}"
   logInfo m!"certified-consensus — kernel-time certificate\n\
     file: {path}\nF =\n{renderMat Fv}\npoints: {pts.length}\n\
-    rank two: {IsRankTwo Fv}\n{body}"
-  unless ok do
-    throwError "REJECTED — rank or residual check failed"
+    rank two: {IsRankTwo Fv}\n{report}"
+  if !IsRankTwo Fv then
+    throwError "REJECTED — F is not rank two (det = {Fv.det})"
+  match bad with
+  | some (i, r) =>
+    throwError "REJECTED — correspondence {i} has residual {r}, outside tolerance {δ}"
+  | none => pure ()
 
 @[implemented_by certifyEpipolarCore]
 opaque certifyEpipolar (F : Syntax) (file : Syntax) (δ? : Option Syntax) : CommandElabM Unit
