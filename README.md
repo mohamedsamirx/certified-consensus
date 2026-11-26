@@ -107,6 +107,25 @@ tightening δ to 29/10000 is rejected: true
 The threshold in `data/noisy_certificate.txt` is the smallest multiple of `1/1000` above
 the observed maximum residual, so it is tight by construction rather than generous.
 
+## Kernel-time certificates
+
+The checker also runs as a command. It evaluates the matrix at elaboration time,
+reads the correspondences, and **fails the build** if the certificate is invalid:
+
+```lean
+#certify_epipolar
+  !![0, 0, 1/10; 0, 0, -1/2; 1/2, 1/10, 0]
+  from "data/stereo_points.txt"
+
+#certify_epipolar
+  !![0, 0, 1/10; 0, 0, -1/2; 1/2, 1/10, 0]
+  from "data/noisy_points.txt" tol 3/500
+```
+
+Replacing the matrix by the identity produces `rank two: false`,
+`residuals exactly zero: 0/24`, and `error: REJECTED — rank or residual check failed`.
+The same file cannot be compiled into a false claim.
+
 ## What is checked, and what is assumed
 
 Checked, in full:
@@ -133,8 +152,11 @@ CertifiedConsensus/
   Epipolar.lean    F = [b]ₓA, epipoles, singularity
   Checker.lean     exact ℚ checker + soundness
   AContrario.lean  finite NFA bound
+  Parse.lean       shared rational/token parsing
+  Command.lean     `#certify_epipolar` elaborator command
 Main.lean          `certify` executable
 Demo.lean          symbolic worked example
+Examples.lean      kernel-time certificate commands
 data/              camera pair + 24 exact correspondences, and a noisy variant
 scripts/           axiom audit, end-to-end verification, noisy-data generator
 DESIGN.md          decision log: what was chosen, rejected, and why
@@ -155,8 +177,7 @@ lake exe certify data/stereo_certificate.txt
 
 - Mathlib candidates: `choose_ratio_lt_pow` (a `Nat.choose` product bound) and
   `expected_false_alarms_le` (a finite union-bound principle).
-- Next: the `#certify_epipolar` elaborator command; homography and PnP instances. See
-  `DESIGN.md` for why each of these was deferred.
+- Next: homography and PnP instances. See `DESIGN.md` for why each was deferred.
 
 ## References
 

@@ -33,4 +33,8 @@ echo "== certificate demo (tolerance) =="
 lake exe certify data/noisy_certificate.txt
 
 echo
-echo "OK: build, axioms, and both certificates verified"
+echo "== elaborator command (kernel-time check) =="
+lake env lean Examples.lean
+
+echo
+echo "OK: build, axioms, both certificates, and the elaborator command verified"

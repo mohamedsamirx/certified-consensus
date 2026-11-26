@@ -4,3 +4,5 @@ import CertifiedConsensus.Stopping
 import CertifiedConsensus.Epipolar
 import CertifiedConsensus.Checker
 import CertifiedConsensus.AContrario
+import CertifiedConsensus.Parse
+import CertifiedConsensus.Command

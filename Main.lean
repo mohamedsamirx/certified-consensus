@@ -27,30 +27,6 @@ open CertifiedConsensus
 
 namespace CLI
 
-/-- Parse an exact rational from `p/q`, `-p/q`, `12.5`, or `-3`. -/
-def parseRat? (s : String) : Option Rat :=
-  match s.splitOn "/" with
-  | [a, b] =>
-      match a.toInt?, b.toInt? with
-      | some n, some d => if d = 0 then none else some (Rat.divInt n d)
-      | _, _ => none
-  | [a] =>
-      let neg := a.startsWith "-"
-      let a := if neg then (a.drop 1).toString else a
-      let mk (v : Rat) : Rat := if neg then -v else v
-      match a.splitOn "." with
-      | [ip, fp] =>
-          let i := ip.toNat?.getD 0
-          let f := fp.toNat?.getD 0
-          let den : Rat := (10 : Rat) ^ fp.length
-          some (mk (((i : Rat) * den + f) / den))
-      | [_] =>
-          match a.toNat? with
-          | some n => some (mk n)
-          | none => none
-      | _ => none
-  | _ => none
-
 def mat3 (l : List Rat) : Matrix (Fin 3) (Fin 3) Rat :=
   Matrix.of fun i j => l.getD (i.val * 3 + j.val) 0
 
@@ -60,9 +36,6 @@ def showMat (M : Matrix (Fin 3) (Fin 3) Rat) : String :=
   String.join <| (List.finRange 3).map (fun i =>
     String.join ((List.finRange 3).map (fun j => toString (M i j) ++ "  ")) ++ "\n")
 
-/-- Interpret a nonnegative rational as a natural number. -/
-def ratToNat (r : Rat) : Nat := r.num.toNat
-
 /-- The first nonvanishing `2 × 2` minor, as a rank-two witness. -/
 def rankWitness (F : Matrix (Fin 3) (Fin 3) Rat) : Option (Rat × Fin 3 × Fin 3 × Fin 3 × Fin 3) :=
   let idx : List (Fin 3 × Fin 3 × Fin 3 × Fin 3) :=
@@ -71,12 +44,6 @@ def rankWitness (F : Matrix (Fin 3) (Fin 3) Rat) : Option (Rat × Fin 3 × Fin 3
   idx.findSome? fun (i, j, k, l) =>
     let m := minor2 F i j k l
     if m ≠ 0 then some (m, i, j, k, l) else none
-
-/-- Split input into whitespace-separated tokens, dropping `#` comments and blank lines. -/
-def tokenize (content : String) : List String :=
-  content.splitOn "\n" |>.flatMap (fun line =>
-    let code := (line.splitOn "#").headD line
-    (code.splitOn " ").filter (fun t => !t.isEmpty))
 
 end CLI
 

@@ -156,18 +156,26 @@ certified-tolerance mode, `|x'ᵀFx| ≤ δ`, with `δ` explicit in the certific
 
 ---
 
-## 10. No `#certify_epipolar` elaborator (yet)
+## 10. `#certify_epipolar` as an elaborator, not `by decide`
 
-**Decision.** Ship the checker as a compiled executable, not an elaborator command.
+**Decision.** Ship the checker both as a compiled executable and as a command that runs at
+elaboration time.
 
-**Why.** Kernel reduction of `Rat` arithmetic is unreliable in this toolchain — `decide`
-gets stuck on `Rat.num` / `Nat.gcd` — so an elaborator that produced `by decide` proofs
-would not work. A compiled executable gives the same verdict without pretending the
-computation is kernel-checked.
+**Why.** Kernel reduction of `Rat` arithmetic is unreliable in this toolchain — `decide` gets
+stuck on `Rat.num` / `Nat.gcd` — so a command that generated `by decide` proofs would not
+work. The command therefore uses `Meta.evalExpr`, which runs the *compiled* checker: the
+verdict is trustworthy as a computation, and the soundness theorem `checkEpipolar_sound`
+connects a `true` answer to the mathematical statement. Elaboration-time evaluation is what
+makes a bad certificate a compile error.
 
-**Cost.** The demo is one shell command rather than one Lean line. The soundness theorem
-still connects the executable's answer to the mathematical statement, because the
-executable is a direct transcription of `checkEpipolar`.
+**Implementation constraint.** `Meta.evalExpr` is `unsafe`, so the command is an `unsafe`
+core with a safe `opaque` wrapper via `@[implemented_by]`. The matrix type is read off
+`checkEpipolar`'s signature rather than constructed by hand, because universe metavariables
+in a hand-built `Matrix` expression are not instantiated.
+
+**Cost.** The command trusts the compiler's evaluator, exactly as `native_decide` does; it
+does not claim to be a kernel reduction. This is stated in the README's "what is assumed"
+section.
 
 ---
 

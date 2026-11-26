@@ -33,3 +33,9 @@ jobs:
 
       - name: Certificate demo
         run: lake exe certify data/stereo_certificate.txt
+
+      - name: Certificate demo (tolerance)
+        run: lake exe certify data/noisy_certificate.txt
+
+      - name: Elaborator command
+        run: lake env lean Examples.lean
